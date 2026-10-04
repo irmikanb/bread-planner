@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>Планировщик хлеба на закваске</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Хлеб">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#faf6f0;--fg:#2b2119;--card:#fff;--mut:#7a6b5d;--bd:#e6dccf;--ac:#a8642a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1712;--fg:#f1e8dc;--card:#272019;--mut:#a89886;--bd:#3a3026;--ac:#e0a060}}
+:root[data-theme="dark"]{--bg:#1c1712;--fg:#f1e8dc;--card:#272019;--mut:#a89886;--bd:#3a3026;--ac:#e0a060}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0 .6em}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:12px 0}
+label{display:block;font-size:.85rem;color:var(--mut);margin:8px 0 2px}
+select,input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 8px;max-width:100%}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:140px}
+.m{color:var(--mut);font-size:.9rem}.day{font-weight:600;margin:10px 0 2px;color:var(--ac)}
+.it{display:flex;gap:8px;padding:2px 0}.it b{min-width:48px;font-variant-numeric:tabular-nums}
+.gap{color:var(--mut);background:var(--bg);border-radius:6px;padding:2px 6px;margin:2px 0}
+h2{font-size:1.05rem;margin:0 0 4px}details{margin-top:8px}
+.abs{display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap}
+.abs input{flex:1;min-width:150px}
+button.rm{background:none;border:1px solid var(--bd);color:var(--mut);border-radius:6px;width:28px;height:28px;cursor:pointer;flex:0 0 auto}
+button.add{margin:6px 0 4px;background:none;border:1px dashed var(--bd);color:var(--ac);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
+button.pick,button.done,button.reset{font:inherit;border-radius:8px;padding:8px 14px;cursor:pointer}
+button.pick{background:var(--ac);color:#fff;border:none;margin-top:10px}
+button.done{background:var(--ac);color:#fff;border:none}
+button.reset{background:none;border:1px solid var(--bd);color:var(--mut)}
+.next{background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.late{color:#c0392b}
+.fgap{margin-top:20px}
+.rowtoggle{background:none;border:1px solid var(--bd);border-radius:6px;width:24px;height:24px;color:var(--mut);cursor:pointer;margin-left:auto;flex:0 0 auto}
+a.compresslink{color:var(--ac)}
+#chatLog{max-height:260px;overflow-y:auto;margin:8px 0}
+.msg{border-radius:10px;padding:8px 10px;margin:6px 0;max-width:88%;white-space:pre-wrap}
+.msg.user{background:var(--ac);color:#fff;margin-left:auto}
+.msg.assistant{background:var(--bg);border:1px solid var(--bd)}
+</style></head><body><main>
+<h1>🍞 Планировщик хлеба на закваске</h1>
+<div class="card" id="chatCard" style="display:none">
+<h2>🤖 Спросить помощника</h2>
+<div id="chatLog"></div>
+<div class="row"><input id="chatIn" placeholder="Хочу хлеб к 9 утра, ухожу с 14 до 17…" style="flex:1"><button type="button" id="chatSend" class="pick" style="margin:0">Спросить</button></div>
+</div>
+<details class="card" id="recipeCard"><summary>➕ Мои рецепты (посмотреть / добавить / сохранить копию)</summary>
+<div id="myRecipes"></div>
+<h2 style="margin-top:14px" id="formTitle">Добавить рецепт</h2>
+<div class="row"><div><label>Название</label><input id="nName" placeholder="Например: Тартин"></div>
+<div><label>Опара/закваска, г</label><input id="nN" type="number" min="1"></div></div>
+<div class="row"><div><label>Аутолиз, мин</label><input id="nAut" type="number" min="0"></div>
+<div><label>Замес (общее время), мин</label><input id="nKn" type="number" min="1"></div></div>
+<div class="row"><div><label>Брожение, мин</label><input id="nBulk" type="number" min="1"></div>
+<div><label>Складываний · через сколько минут</label><div style="display:flex;gap:6px"><input id="nFc" type="number" min="0" style="width:70px" placeholder="раз"><input id="nFe" type="number" min="1" style="width:90px" placeholder="мин"></div></div></div>
+<label>Ингредиенты, которые соединяются в начале (без опары — она добавится сама)</label>
+<div id="ingCList"></div><button type="button" class="add" id="ingCAdd">+ ингредиент</button>
+<label style="margin-top:10px">Добавляются позже, во время замеса (соль и т.п., необязательно)</label>
+<div id="ingKList"></div><button type="button" class="add" id="ingKAdd">+ ингредиент</button>
+<label style="margin-top:10px">Краткий процесс по шагам (необязательно, для справки)</label>
+<textarea id="nText" rows="4" style="width:100%;font:inherit;background:var(--bg);color:inherit;border:1px solid var(--bd);border-radius:8px;padding:6px 8px"></textarea>
+<div class="m">Предформовка, формовка, расстойка и выпечка берутся такими же, как у остальных рецептов на закваске.</div>
+<div class="row" style="margin-top:6px"><button type="button" class="pick" id="nAdd">Сохранить рецепт</button><button type="button" class="reset" id="nCancelEdit" style="display:none">Отменить редактирование</button></div>
+<div class="m" id="nMsg"></div>
+<div class="row" style="margin-top:14px"><button type="button" class="reset" id="nExport">Скачать копию рецептов</button><button type="button" class="reset" id="nImportBtn">Загрузить из файла</button><input type="file" id="nImportFile" accept="application/json" style="display:none"></div>
+</details>
+<details class="card" id="startCard"><summary>Уже начала печь без расчёта? Продолжить с текущего этапа</summary>
+<div class="row"><div><label>Хлеб</label><select id="scRc"></select></div>
+<div><label>На каком этапе я сейчас</label><select id="scCk"></select></div></div>
+<div class="row"><div><label>Когда это сделала</label><input type="datetime-local" id="scAt"></div>
+<div><label>Расстойка (если уже решили)</label><select id="scPm"><option value="room">комнатная</option><option value="f8">холодильник 8 °C</option><option value="f4">холодильник 4 °C</option></select></div></div>
+<button type="button" class="pick" id="scGo">Рассчитать дальше</button>
+<div class="m" id="scMsg"></div>
+</details>
+<div class="card" id="plannerCard">
+<h2>Подобрать расписание</h2>
+<div class="row"><div><label>Хлеб</label><select id="rc"></select></div></div>
+<div class="row fgap" style="gap:16px;align-items:center">
+<label style="display:flex;align-items:center;gap:6px;margin:0"><input type="radio" name="mode" value="target" id="modeTarget" checked>К определённому времени</label>
+<label style="display:flex;align-items:center;gap:6px;margin:0"><input type="radio" name="mode" value="now" id="modeNow">Готова начать прямо сейчас, неважно когда будет готов</label>
+</div>
+<div class="row fgap" id="tgWrap"><div><label>Хочу готовый хлеб (конец выпечки)</label><input type="datetime-local" id="tg"></div></div>
+<div class="fgap"><label>Периоды, когда меня не будет</label>
+<div id="absList"></div>
+<button type="button" id="absAdd" class="add">+ добавить период</button></div>
+<div class="row fgap"><div><label>Не занимаюсь хлебом: с</label><input type="time" id="q1" value="23:00"></div><div><label>до</label><input type="time" id="q2" value="07:00"></div></div>
+<div class="row fgap"><div><label id="nbLabel">Могу начать не раньше</label><input type="datetime-local" id="nb"></div></div>
+<div class="m">Ограничения применяются к каждому дню процесса. Пустые поля — без ограничения.</div>
+</div>
+<div id="out"></div>
+<script>
+const M=60000,$=i=>document.getElementById(i);
+let ABS=[];
+function absRow(it,i){const w=document.createElement('div');w.className='abs';
+ w.innerHTML='<input type="datetime-local" value="'+it.s+'"><span class="m">–</span><input type="datetime-local" value="'+it.e+'"><button type="button" class="rm" title="Удалить">✕</button>';
+ const[i1,i2]=w.querySelectorAll('input'),rm=w.querySelector('button');
+ i1.oninput=()=>{it.s=i1.value;render()};i2.oninput=()=>{it.e=i2.value;render()};
+ rm.onclick=()=>{ABS=ABS.filter(x=>x!==it);renderAbs();render()};
+ return w}
+function renderAbs(){const c=$('absList');c.innerHTML='';ABS.forEach((it,i)=>c.appendChild(absRow(it,i)))}
+function defRange(h0,m0,h1,m1){const d=new Date();d.setMinutes(Math.ceil(d.getMinutes()/15)*15,0,0);
+ const s=new Date(d);s.setHours(h0,m0||0,0,0);const e=new Date(d);e.setHours(h1,m1||0,0,0);
+ const f=x=>{const z=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+z(x.getMonth()+1)+'-'+z(x.getDate())+'T'+z(x.getHours())+':'+z(x.getMinutes())};
+ return{s:f(s),e:f(e)}}
+const R={wheat:{N:120,bulk:210,fold:[4,40],knead:8,aut:45,flax:0,combineNote:'Соединить: вода 360 г + мука пшеничная 500 г + мука ц/з 100 г + опара 120 г = 1080 г',kneadNote:' (3 мин, соль 12 г, ещё 5 мин)',pr:{room:[120,150],f8:[540,660],f4:[1020,1140]}},
+flax:{N:300,bulk:165,fold:[2,50],knead:11,aut:60,flax:1,combineNote:'Соединить: вода 240 г + мука пшеничная 575 г + мука ц/з 60 г + опара 300 г + мочка (вся) 290 г = 1465 г',pr:{room:[120,120],f8:[540,660],f4:[1020,1140]}},
+malt_bread:{N:160,bulk:225,fold:[6,30],knead:11,aut:60,scald:1,combineNote:'Соединить: вода1 290 г + мука пшеничная 635 г + опара 160 г + заварка (вся) 316 г = 1401 г',kneadNote:' (3-5 мин, вода2 23 г и соль 17 г в 2 захода, ещё 6-7 мин)',pr:{room:[60,180],f8:[540,660],f4:[1020,1140]}}};
+const STDPR={room:[120,150],f8:[540,660],f4:[1020,1140]};
+const PRFLAT2={room:[120,120],f8:[540,660],f4:[1020,1140]};
+const PRUNTIL2={room:[60,180],f8:[540,660],f4:[1020,1140]};
+const PRPICK={wheat:STDPR,flat2:PRFLAT2,until2:PRUNTIL2};
+const RTXT={
+ wheat:'Пшеничный с ц/з мукой (1 большая или 2 маленькие буханки)\nОпара 120 г · Вода 360 г · Мука пшеничная 500 г · Мука ц/з 100 г · Соль 12 г\n\n1. Вода+мука+опара, автолиз 45 мин\n2. Замес 3 мин, соль, ещё 5 мин\n3. Брожение 3,5 ч, 4 складывания каждые 40 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2-2,5ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке',
+ flax:'Хлеб с семенами льна (2 буханки)\nМочка: семена льна 75 г + вода 215 г (обжарить, залить, 3-12ч)\nОпара 300 г · Вода 240 г · Мука пшеничная 575 г · Мука ц/з 60 г · Соль 17 г · Мёд 40 г\n\n1. Вода+мочка+мука+опара, автолиз 1ч\n2. Замес 2 мин, мёд, 5 мин, соль, ещё 3-5 мин\n3. Брожение 2,5-3ч, 2 складывания каждые 50 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке',
+ malt_bread:'Солодовый хлеб (2 буханки)\nЗаварка: ржаная мука 35г + тёмный солод 58г + кипяток 215г, перемешать, добавить белый солод 8г при температуре не выше 70°C (2-3ч или на ночь, накрыв полотенцем)\nОпара 160 г · Вода1 290 г · Мука пшеничная 635 г · вся заварка · Вода2 23 г · Соль 17 г\n\n1. Вода1+заварка+мука+опара, автолиз 1ч\n2. Замес 3-5 мин, вода2+соль в 2 захода, ещё 6-7 мин\n3. Брожение 3,5-4ч, 5-6 складываний каждые 30 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. до 2ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'
+};
+const PL={room:'комнатная',f8:'холодильник 8 °C',f4:'холодильник 4 °C'};
+const RNAME={wheat:'🍞 Пшеничный хлеб с ц/з',flax:'🌾 Хлеб с льном',malt_bread:'🌑 Солодовый хлеб'};
+const CKLABEL={levain_made:'Приготовила опару',levain_taken:'Переложила опару в тесто',combine:'Смешала воду, муку и опару',knead:'Замесила тесто',scald_done:'Заварка настояна',fold_1:'Складка №1',fold_2:'Складка №2',fold_3:'Складка №3',fold_4:'Складка №4',fold_5:'Складка №5',fold_6:'Складка №6',preshape:'Сделала предформовку',shape:'Сформовала',fridge_move:'Убрала в холодильник',bake_start:'Загрузила в духовку'};
+function ckList(rcId){const rc=R[rcId];if(!rc)return[];const l=['levain_made','levain_taken'];if(rc.scald)l.push('scald_done');l.push('combine','knead');
+ for(let i=1;i<=rc.fold[0];i++)l.push('fold_'+i);l.push('preshape','shape','fridge_move','bake_start');return l}
+const LV={night:{r:10,step:1,rng:[600,720],lb:'долгая 1:10:10 (10–12 ч)'},day:{r:2,step:5,rng:[240,300],lb:'короткая 1:2:2 (4–5 ч)'}};
+function levain(N,m){const k=1+2*m.r,s=Math.ceil((N+10)/k/m.step-1e-9)*m.step;return{s,f:s*m.r,t:s*k}}
+function build(rc,pm,P,lm,L,T){
+ let ic=0;const A=[],S=[],a=(t,d,l,x,key)=>A.push({id:'a'+(ic++),s:t,e:t+d*M,l,x,key}),st=(s,e,x)=>S.push({s,e,x});
+ const bs=T-33*M;a(bs,5,'r','Переложить на пергамент, сделать надрезы, сбрызнуть водой и загрузить','bake_start');a(bs+15*M,2,'y','Снизить до 230 °C');a(T-2*M,2,'y','Достать хлеб');st(bs,T,'выпечка');
+ a(bs-60*M,2,'y','Включить духовку (разогрев до 250 °C)');
+ let c=bs-P*M;st(c,bs,'расстойка: '+PL[pm]);if(pm!='room')a(c,5,'y','Убрать тесто в холодильник','fridge_move');
+ c-=10*M;a(c,10,'r','Формовка','shape');c-=15*M;st(c,c+15*M,'отдых теста');c-=10*M;a(c,10,'r','Предформовка','preshape');
+ const b0=c-rc.bulk*M;st(b0,c,'брожение');for(let i=1;i<=rc.fold[0];i++)a(b0+i*rc.fold[1]*M,2,'y','Складка №'+i,'fold_'+i);c=b0;
+ c-=rc.knead*M;a(c,rc.knead,'r','Замес'+(rc.flax?' (2 мин, мёд 40 г, 5 мин, соль 17 г, ещё 3–5 мин)':(rc.kneadNote||'')),'knead');
+ c-=rc.aut*M;const autStart=c;st(c,c+rc.aut*M,'аутолиз');if(rc.extraAction)a(autStart+(rc.extraAction.offsetMin||0)*M,2,'y',rc.extraAction.title);c-=5*M;a(c,5,'r',rc.combineNote||('Соединить воду, муку, опару'+(rc.flax?' и мочку льна':'')),'combine');const cs=c;
+ const lv=levain(rc.N,LV[lm]);c-=3*M;a(c,3,'y','Забрать '+rc.N+' г опары в тесто; из остатка взять 10 г и покормить 1:5:5 (10+50+50 г)','levain_taken');
+ const le=c;c-=L*M;st(c,le,'опара созревает');a(c,5,'r','Приготовить опару: закваска '+lv.s+' г + мука '+lv.f+' г + вода '+lv.f+' г = '+lv.t+' г','levain_made');
+ if(rc.flax){const ss=cs-240*M;st(ss,cs,'мочка льна');a(ss,2,'r','Залить семена льна (75 г) водой (215 г)');st(ss-15*M,ss,'семена остывают');a(ss-20*M,5,'r','Обжарить семена льна 75 г на сухой сковороде (5 мин)')}
+ if(rc.scald){const ss=cs-150*M;st(ss,cs,'заварка настаивается');a(ss,5,'r','Заварка: ржаная мука 35 г + тёмный солод 58 г + кипяток 215 г, затем белый солод 8 г (при ≤70 °C)','scald_done')}
+ A.sort((x,y)=>x.s-y.s);
+ return{A,S,start:Math.min(...A.map(x=>x.s),...S.map(x=>x.s)),T}
+}
+function blocks(T,fwd){const o=[],g=(id)=>$(id).value,d0=new Date(T);d0.setHours(0,0,0,0);
+ const mk=(d,t)=>{const[h,m]=t.split(':');const x=new Date(d);x.setHours(+h,+m,0,0);return x.getTime()};
+ if(!fwd&&g('nb'))o.push({s:0,e:new Date(g('nb')).getTime(),w:'это раньше времени, с которого вы можете начать'});
+ for(const it of ABS)if(it.s&&it.e)o.push({s:new Date(it.s).getTime(),e:new Date(it.e).getTime(),w:'вы отсутствуете'});
+ const range=fwd?[0,1,2,3]:[-5,-4,-3,-2,-1,0];
+ for(const i of range){const d=new Date(d0);d.setDate(d.getDate()+i);
+  if(g('q1')&&g('q2')){const n=new Date(d);n.setDate(n.getDate()+1);o.push({s:mk(d,g('q1')),e:mk(n,g('q2')),w:'время, когда вы не занимаетесь хлебом'})}}
+ return o}
+const tm=t=>new Date(t).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}),
+dy=t=>new Date(t).toLocaleDateString('ru',{weekday:'short',day:'numeric',month:'long'}),
+dur=m=>Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':'');
+function metrics(v){let gap=null,act=0,mx=v.A[0].e;for(const x of v.A){act+=(x.e-x.s)/M;if(x.s>mx){const g={s:mx,e:x.s};if(!gap||g.e-g.s>gap.e-gap.s)gap=g}mx=Math.max(mx,x.e)}
+ return{act,gap:gap?(gap.e-gap.s)/M:0,span:(v.T-v.start)/M}}
+function plan(){
+ const rcId=$('rc').value,T=new Date($('tg').value).getTime(),rc=R[rcId],X=blocks(T),ok=[],no=[];
+ for(const pm in rc.pr)for(const lm in LV){let best=null,worst=null;
+  const[p0,p1]=rc.pr[pm],[l0,l1]=LV[lm].rng;
+  for(let P=p0;P<=p1;P+=30)for(let L=l0;L<=l1;L+=30){
+   const v=build(rc,pm,P,lm,L,T),bad=[];
+   for(const it of v.A){const w=X.find(w=>it.s<w.e&&it.e>w.s);if(w)bad.push(it.x+' в '+tm(it.s)+' ('+w.w+')')}
+   const mt=metrics(v);v.mt=mt;v.pm=pm;v.lm=lm;v.P=P;v.L=L;
+   if(!bad.length){if(!best||mt.gap>best.mt.gap)best=v}else if(!worst||bad.length<worst.bad.length){v.bad=bad;worst=v}}
+  if(best)ok.push(best);else no.push({pm,lm,bad:worst.bad})}
+ ok.sort((x,y)=>y.mt.gap-x.mt.gap);return{ok:ok.slice(0,3),no,rc,rcId}}
+function planForward(){
+ const rcId=$('rc').value,rc=R[rcId],start=new Date($('nb').value).getTime();
+ if(!start||isNaN(start))return{ok:[],no:[],rc,rcId,noStart:true};
+ const X=blocks(start,true),ok=[],no=[];
+ for(const pm in rc.pr)for(const lm in LV){let best=null,worst=null;
+  const[p0,p1]=rc.pr[pm],[l0,l1]=LV[lm].rng;
+  for(let P=p0;P<=p1;P+=30)for(let L=l0;L<=l1;L+=30){
+   const v0=build(rc,pm,P,lm,L,0),delta=start-v0.start;
+   const v={A:v0.A.map(x=>Object.assign({},x,{s:x.s+delta,e:x.e+delta})),S:v0.S.map(x=>Object.assign({},x,{s:x.s+delta,e:x.e+delta})),start,T:v0.T+delta,pm,lm,P,L},bad=[];
+   for(const it of v.A){const w=X.find(w=>it.s<w.e&&it.e>w.s);if(w)bad.push(it.x+' в '+tm(it.s)+' ('+w.w+')')}
+   const mt=metrics(v);v.mt=mt;
+   if(!bad.length){if(!best||v.T<best.T)best=v}else if(!worst||bad.length<worst.bad.length){v.bad=bad;worst=v}}
+  if(best)ok.push(best);else no.push({pm,lm,bad:worst.bad})}
+ ok.sort((x,y)=>x.T-y.T);return{ok:ok.slice(0,3),no,rc,rcId}}
+function card(v,i,rc,rcId){const{A,S,mt}=v,lv=levain(rc.N,LV[v.lm]);
+ let h='<div class="card"><div class="m">'+(RNAME[rcId]||'')+' · вариант '+(i+1)+'</div><h2>Опара '+LV[v.lm].lb+', расстойка — '+PL[v.pm]+'</h2><div class="m">Старт '+dy(v.start)+', '+tm(v.start)+' · всего '+dur(mt.span)+' · внимание '+dur(mt.act)+' · самый длинный отдых '+dur(mt.gap)+'</div>';
+ if(RTXT[rcId])h+='<details style="margin:6px 0"><summary class="m">📋 Рецепт: ингредиенты и процесс</summary><div class="m" style="white-space:pre-wrap;padding:6px 0">'+RTXT[rcId]+'</div></details>';
+ let dk='',mx=A[0].e;
+ for(const x of A){if(x.s-mx>=60*M){const mid=(mx+x.s)/2,s=S.find(z=>z.s<=mid&&z.e>=mid);
+   h+='<div class="gap">🟢 '+tm(mx)+'–'+tm(x.s)+' · свободно'+(s?' ('+s.x+')':'')+'</div>'}
+  const k=dy(x.s);if(k!=dk){h+='<div class="day">'+k+'</div>';dk=k}
+  h+='<div class="it"><b>'+tm(x.s)+'</b><span>'+(x.l=='r'?'🔴':'🟡')+' '+x.x+'</span></div>';mx=Math.max(mx,x.e)}
+ h+='<div class="it m"><b>'+tm(v.T)+'</b><span>✅ Хлеб готов (остывание на решётке ~1 ч)</span></div>';
+ h+='<button type="button" class="pick" data-i="'+i+'">Выбрать этот вариант</button></div>';
+ return h}
+let LASTPLAN=null;
+function selectVariant(i){
+ const v=LASTPLAN.ok[i];
+ const sess={rcId:LASTPLAN.rcId,pm:v.pm,lm:v.lm,T:v.T,
+  actions:v.A.map(x=>({id:x.id,x:x.x,l:x.l,s:x.s,e:x.e,key:x.key,status:'pending'})),
+  stages:v.S.map(s=>({s:s.s,e:s.e,x:s.x}))};
+ localStorage.setItem('bps_session',JSON.stringify(sess));render()}
+function loadSession(){try{return JSON.parse(localStorage.getItem('bps_session'))}catch(e){return null}}
+const FLEXKEYS=['levain_made','scald_done'];
+function saveUndo(sess){try{localStorage.setItem('bps_session_undo',JSON.stringify(sess))}catch(e){}}
+function markDone(id,now,force){
+ now=now||Date.now();
+ const sess=loadSession();if(!sess)return;
+ const act=sess.actions.find(a=>a.id===id);if(!act)return;
+ saveUndo(sess);
+ const origS=act.s,delta=now-origS;
+ if(!force&&FLEXKEYS.includes(act.key)&&delta<=0){
+  act.status='done';act.actual=now;act.s=now;act.e=now;
+  localStorage.setItem('bps_session',JSON.stringify(sess));render();return}
+ act.status='done';act.actual=now;act.s=now;act.e=now;
+ for(const a of sess.actions)if(a.id!==id&&a.s>origS){a.s+=delta;a.e+=delta}
+ for(const s of sess.stages){if(s.s>origS)s.s+=delta;if(s.e>origS)s.e+=delta}
+ sess.T+=delta;
+ localStorage.setItem('bps_session',JSON.stringify(sess));render()}
+function delayAction(id,mins){
+ const sess=loadSession();if(!sess)return;
+ const act=sess.actions.find(a=>a.id===id);if(!act)return;
+ saveUndo(sess);
+ const delta=mins*M,origS=act.s;act.s+=delta;act.e+=delta;
+ for(const a of sess.actions)if(a.id!==id&&a.s>origS){a.s+=delta;a.e+=delta}
+ for(const s of sess.stages){if(s.s>origS)s.s+=delta;if(s.e>origS)s.e+=delta}
+ sess.T+=delta;localStorage.setItem('bps_session',JSON.stringify(sess));render()}
+function compressAfterDelay(id,now){
+ now=now||Date.now();
+ const sess=loadSession();if(!sess)return;
+ const act=sess.actions.find(a=>a.id===id);if(!act)return;
+ const origS=act.s,delta=now-origS;
+ if(delta<=0){markDone(id,now);return}
+ saveUndo(sess);
+ const rc=R[sess.rcId],minP=rc.pr[sess.pm][0]*M;
+ const proof=sess.stages.find(s=>s.x.indexOf('расстойка')===0);
+ if(!proof||proof.e<=origS){markDone(id,now,true);return}
+ const oS=proof.s,oE=proof.e,curDur=oE-oS,avail=Math.max(curDur-minP,0);
+ const compress=Math.min(delta,avail),remainder=delta-compress;
+ act.status='done';act.actual=now;act.s=now;act.e=now;
+ for(const a of sess.actions){if(a.id===id)continue;
+  if(a.s>origS&&a.s<oE){a.s+=delta;a.e+=delta}
+  else if(a.s>=oE){a.s+=remainder;a.e+=remainder}}
+ for(const s of sess.stages){
+  if(s===proof){s.s+=delta;s.e=s.s+curDur-compress}
+  else if(s.s>origS&&s.s<oE){s.s+=delta;s.e+=delta}
+  else if(s.s>=oE){s.s+=remainder;s.e+=remainder}}
+ sess.T+=remainder;localStorage.setItem('bps_session',JSON.stringify(sess));render();
+ return remainder}
+function undoLast(){const u=localStorage.getItem('bps_session_undo');if(!u)return;
+ localStorage.setItem('bps_session',u);localStorage.removeItem('bps_session_undo');render()}
+function resetSession(){localStorage.removeItem('bps_session');localStorage.removeItem('bps_session_undo');render()}
+function dtVal(ms){const d=new Date(ms),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'T'+z(d.getHours())+':'+z(d.getMinutes())}
+function renderSession(sess){
+ const now=Date.now(),rc=RNAME[sess.rcId]||sess.rcId,pending=sess.actions.filter(a=>a.status==='pending').sort((a,b)=>a.s-b.s);
+ const seg=sess.stages.find(s=>s.s<=now&&s.e>=now);
+ const stageLabel=seg?seg.x:(sess.stages.length&&now<sess.stages[0].s?'ещё не начали':(pending.length?'':'процесс завершён'));
+ let h='<div class="card"><h2>'+rc+'</h2><div class="m">Готов к: '+tm(sess.T)+', '+dy(sess.T)+' · опара '+LV[sess.lm].lb+' · расстойка — '+PL[sess.pm]+'</div>';
+ if(RTXT[sess.rcId])h+='<details style="margin:6px 0"><summary class="m">📋 Рецепт: ингредиенты и процесс</summary><div class="m" style="white-space:pre-wrap;padding:6px 0">'+RTXT[sess.rcId]+'</div></details>';
+ h+='<div class="m" style="margin-top:6px">Сейчас: '+stageLabel+'</div>';
+ if(pending.length){const nx=pending[0],diff=Math.round((nx.s-now)/M),late=diff<0;
+  const when=late?'<span class="late">просрочено на '+(-diff)+' мин</span>':'через '+diff+' мин';
+  h+='<div class="next"><div><div class="m">Следующее действие · '+tm(nx.s)+' · '+when+'</div><div><b>'+(nx.l=='r'?'🔴':'🟡')+' '+nx.x+'</b></div></div></div>';
+  h+='<div class="row" style="gap:6px;align-items:center;margin-top:6px"><input type="datetime-local" id="nextTime" value="'+dtVal(now)+'"><button type="button" class="pick donebtn" data-id="'+nx.id+'" style="margin:0">Отметить выполненным</button></div>';
+  h+='<div class="m" style="margin-top:4px">Время можно поставить и в прошлом, и в будущем. <a href="#" class="compresslink" data-id="'+nx.id+'">…или сжать расстойку, чтобы успеть к прежней готовности</a></div>';
+  h+='<div class="row" style="gap:6px;margin-top:10px"><button type="button" class="reset delaybtn" data-id="'+nx.id+'" data-mins="15">Перенести на 15 мин</button><button type="button" class="reset delaybtn" data-id="'+nx.id+'" data-mins="30">Перенести на 30 мин</button></div>';
+  h+='<div class="m" style="margin-top:10px">Весь процесс (✓ — отметить шаг выполненным своим временем; серым — уже сделано):</div>';
+  const all=sess.actions.slice().sort((a,b)=>a.s-b.s);let dk='',mx=all.length?all[0].s:now;
+  for(const p of all){const isDone=p.status==='done',isNext=p.id===nx.id;
+   if(!isDone&&p.s-mx>=60*M){const mid=(mx+p.s)/2,st=sess.stages.find(z=>z.s<=mid&&z.e>=mid);
+     h+='<div class="gap">🟢 '+tm(mx)+'–'+tm(p.s)+' · свободно'+(st?' ('+st.x+')':'')+'</div>'}
+   const k=dy(p.s);if(k!=dk){h+='<div class="day">'+k+'</div>';dk=k}
+   const st=isDone?'opacity:.45' : (isNext?'font-weight:600':'');
+   const skipBtn=isDone||isNext;
+   h+='<div class="it" style="'+st+'"><b>'+tm(p.s)+'</b><span>'+(isDone?'✅':(p.l=='r'?'🔴':'🟡'))+' '+p.x+'</span>'+(skipBtn?'':'<button type="button" class="rowtoggle" data-id="'+p.id+'">✓</button>')+'</div>'+(skipBtn?'':'<div class="rowedit" id="edit_'+p.id+'" style="display:none"></div>');
+   mx=Math.max(mx,p.e)}
+  h+='<div class="it m"><b>'+tm(sess.T)+'</b><span>✅ Хлеб готов (остывание ~1 ч)</span></div>';
+ } else h+='<div class="m" style="margin-top:8px">Все действия выполнены. Хлеб готов!</div>';
+ h+='<div class="row" style="gap:8px;margin-top:14px"><button type="button" class="reset endbtn">Начать заново</button>'+(localStorage.getItem('bps_session_undo')?'<button type="button" class="reset undobtn">Отменить последнее действие</button>':'')+'</div></div>';
+ $('out').innerHTML=h;
+ $('out').querySelector('.endbtn').onclick=resetSession;
+ const ub=$('out').querySelector('.undobtn');if(ub)ub.onclick=undoLast;
+ if(pending.length){
+  $('out').querySelector('.donebtn').onclick=()=>{const t=new Date($('nextTime').value).getTime();markDone(pending[0].id,isNaN(t)?Date.now():t)};
+  const cl=$('out').querySelector('.compresslink');if(cl)cl.onclick=(e)=>{e.preventDefault();const t=new Date($('nextTime').value).getTime();compressAfterDelay(pending[0].id,isNaN(t)?Date.now():t)};
+  $('out').querySelectorAll('.delaybtn').forEach(b=>b.onclick=()=>delayAction(b.dataset.id,+b.dataset.mins));
+  $('out').querySelectorAll('.rowtoggle').forEach(b=>b.onclick=()=>{
+   const ed=document.getElementById('edit_'+b.dataset.id),act=sess.actions.find(a=>a.id===b.dataset.id);
+   if(ed.style.display==='none'){
+    ed.innerHTML='<div class="row" style="gap:6px;margin:4px 0 8px"><input type="datetime-local" class="rowtime" value="'+dtVal(act.s)+'"><button type="button" class="pick rowgo" style="margin:0">Готово</button></div>';
+    ed.style.display='';
+    ed.querySelector('.rowgo').onclick=()=>{const t=new Date(ed.querySelector('.rowtime').value).getTime();if(!isNaN(t))markDone(b.dataset.id,t)};
+   } else ed.style.display='none'})}}
+function render(){
+ const sess=loadSession();
+ if(sess){$('plannerCard').style.display='none';$('startCard').style.display='none';renderSession(sess);return}
+ $('plannerCard').style.display='';$('startCard').style.display='';
+ const now=$('modeNow').checked;
+ $('tgWrap').style.display=now?'none':'';
+ $('nbLabel').textContent=now?'Начинаю в':'Могу начать не раньше';
+ if(!now&&!$('tg').value)return;
+ if(now&&!$('nb').value)return;
+ const p=now?planForward():plan();LASTPLAN=p;let h='';
+ h+=p.ok.length?p.ok.map((v,i)=>card(v,i,p.rc,p.rcId)).join(''):'<div class="card"><b>Подходящих вариантов нет.</b> '+(now?'Попробуйте разрешить что-то из ограничений.':'Ослабьте ограничения или сдвиньте время готовности.')+'</div>';
+ if(p.no.length)h+='<details class="card"><summary>Не подходят ('+p.no.length+')</summary>'+p.no.map(n=>'<p class="m"><b>Опара '+LV[n.lm].lb+', '+PL[n.pm]+':</b> '+n.bad.slice(0,2).join('; ')+'</p>').join('')+'</details>';
+ $('out').innerHTML=h;
+ $('out').querySelectorAll('.pick').forEach(b=>b.onclick=()=>selectVariant(+b.dataset.i))}
+setInterval(()=>{if(loadSession())render()},30000);
+function isoDT(iso){const d=new Date(iso);return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'T'+z(d.getHours())+':'+z(d.getMinutes())}
+function startFromCheckpoint(rcId,ck,atMs,pmId){
+ const rc=R[rcId];if(!rc)return{error:'неизвестный рецепт'};
+ const pm=pmId||'room';if(!rc.pr[pm])return{error:'неизвестный режим расстойки'};
+ const[p0,p1]=rc.pr[pm],P=Math.round((p0+p1)/2),v=build(rc,pm,P,'day',270,0);
+ const node=v.A.find(x=>x.key===ck);
+ if(!node)return{error:'неизвестная контрольная точка "'+ck+'"'};
+ const delta=atMs-node.s;
+ const sess={rcId,pm,lm:'day',T:v.T+delta,
+  actions:v.A.map(x=>({id:x.id,x:x.x,l:x.l,s:x.s+delta,e:x.e+delta,key:x.key,status:x.s<=node.s?'done':'pending'})),
+  stages:v.S.map(s=>({s:s.s+delta,e:s.e+delta,x:s.x}))};
+ localStorage.setItem('bps_session',JSON.stringify(sess));render();
+ return{ok:true,proof:PL[pm],ready_iso:new Date(sess.T).toISOString()}}
+let LASTCHAT=null;
+const TOOLS=[
+ {name:'set_target',description:'Выбрать рецепт и время готовности (конец выпечки)',
+  inputSchema:{type:'object',properties:{recipe:{type:'string',enum:['wheat','flax']},ready_at_iso:{type:'string'}},required:['recipe','ready_at_iso']},
+  execute:async i=>{$('rc').value=i.recipe;$('tg').value=isoDT(i.ready_at_iso);render();return{ok:true}}},
+ {name:'set_constraints',description:'Задать периоды отсутствия (заменяют старые), время без хлеба и время, раньше которого нельзя начать',
+  inputSchema:{type:'object',properties:{absences:{type:'array',items:{type:'object',properties:{start_iso:{type:'string'},end_iso:{type:'string'}},required:['start_iso','end_iso']}},quiet_start:{type:'string',description:'HH:MM'},quiet_end:{type:'string',description:'HH:MM'},not_before_iso:{type:'string'}}},
+  execute:async i=>{if(i.absences){ABS=i.absences.map(a=>({s:isoDT(a.start_iso),e:isoDT(a.end_iso)}));renderAbs()}
+   if(i.quiet_start)$('q1').value=i.quiet_start;if(i.quiet_end)$('q2').value=i.quiet_end;
+   if(i.not_before_iso)$('nb').value=isoDT(i.not_before_iso);render();return{ok:true}}},
+ {name:'generate_schedules',description:'Построить варианты расписания по текущим рецепту/времени/ограничениям',
+  inputSchema:{type:'object',properties:{}},
+  execute:async()=>{if(!$('tg').value)return{error:'не задано время готовности, сначала вызови set_target'};
+   const p=plan();LASTPLAN=p;
+   return{variants:p.ok.map((v,i)=>({index:i,proof:PL[v.pm],levain:LV[v.lm].lb,start_iso:new Date(v.start).toISOString(),ready_iso:new Date(v.T).toISOString(),total_minutes:Math.round(v.mt.span),attention_minutes:Math.round(v.mt.act),longest_free_minutes:Math.round(v.mt.gap)})),
+    rejected:p.no.map(n=>({levain:LV[n.lm].lb,proof:PL[n.pm],reasons:n.bad.slice(0,3)}))}}},
+ {name:'pick_variant',description:'Выбрать вариант по index из generate_schedules и начать выпечку по нему',
+  inputSchema:{type:'object',properties:{index:{type:'number'}},required:['index']},
+  execute:async i=>{if(!LASTPLAN||!LASTPLAN.ok[i.index])return{error:'сначала вызови generate_schedules'};selectVariant(i.index);return{ok:true}}},
+ {name:'get_status',description:'Узнать, идёт ли сейчас выпечка, какой этап и следующее действие',
+  inputSchema:{type:'object',properties:{}},
+  execute:async()=>{const sess=loadSession();if(!sess)return{active:false};
+   const now=Date.now(),pending=sess.actions.filter(a=>a.status==='pending').sort((a,b)=>a.s-b.s);
+   return{active:true,recipe:RNAME[sess.rcId],ready_iso:new Date(sess.T).toISOString(),
+    next_action:pending[0]?{title:pending[0].x,at_iso:new Date(pending[0].s).toISOString(),minutes_until:Math.round((pending[0].s-now)/M)}:null}}},
+ {name:'time_if_start_now',description:'Ответить на вопрос «если начну прямо сейчас, когда хлеб будет готов». Считает вперёд от текущего момента, а не назад от желаемого времени, и не учитывает периоды отсутствия',
+  inputSchema:{type:'object',properties:{recipe:{type:'string',enum:['wheat','flax']},proof:{type:'string',enum:['room','f8','f4'],description:'по умолчанию room — самая быстрая'},levain:{type:'string',enum:['night','day'],description:'по умолчанию day — самая быстрая'}},required:['recipe']},
+  execute:async i=>{const rc=R[i.recipe];if(!rc)return{error:'неизвестный рецепт'};
+   const pm=i.proof||'room',lm=i.levain||'day';if(!rc.pr[pm])return{error:'неизвестный режим расстойки'};
+   const[p0,p1]=rc.pr[pm],P=Math.round((p0+p1)/2),[l0,l1]=LV[lm].rng,L=Math.round((l0+l1)/2);
+   const v=build(rc,pm,P,lm,L,0),delta=Date.now()-v.start;
+   return{proof:PL[pm],levain:LV[lm].lb,ready_iso:new Date(v.T+delta).toISOString(),total_minutes:Math.round((v.T-v.start)/M)}}},
+ {name:'start_from_checkpoint',description:'Пользователь уже начал печь без приложения. По названию уже пройденного шага и времени, когда он был сделан, досчитать расписание вперёд и запустить текущую выпечку',
+  inputSchema:{type:'object',properties:{recipe:{type:'string',description:'id рецепта из текущего списка хлеба (wheat, flax и т.д.)'},proof:{type:'string',enum:['room','f8','f4'],description:'режим расстойки, если пользователь уже решил; иначе room'},checkpoint:{type:'string',description:'levain_made (приготовила опару), levain_taken (переложила опару в тесто), scald_done (только для рецептов с заваркой), combine, knead, fold_1, fold_2... (число складок зависит от рецепта), preshape, shape, fridge_move (только не для room), bake_start'},at_iso:{type:'string',description:'когда этот шаг был сделан по факту'}},required:['recipe','checkpoint','at_iso']},
+  execute:async i=>startFromCheckpoint(i.recipe,i.checkpoint,new Date(i.at_iso).getTime(),i.proof)},
+ {name:'recalc_delay',description:'Пользователь задержался с ближайшим действием на N минут — пересчитать оставшееся расписание',
+  inputSchema:{type:'object',properties:{delay_minutes:{type:'number'}},required:['delay_minutes']},
+  execute:async i=>{const sess=loadSession();if(!sess)return{error:'нет активной выпечки'};
+   const pending=sess.actions.filter(a=>a.status==='pending').sort((a,b)=>a.s-b.s);
+   if(!pending.length)return{error:'нет предстоящих действий'};
+   const nx=pending[0];markDone(nx.id,nx.s+i.delay_minutes*M);return{ok:true,action:nx.x}}}
+];
+function rules(){return'Ты — голос планировщика хлеба на закваске внутри приложения. Сам никогда не считай время или граммы — только через инструменты. Отвечай кратко и по-русски. Текущее время: '+new Date().toISOString()+'. Рецепты: wheat = Пшеничный хлеб с ц/з, flax = Хлеб с льном. Время готовности — это конец выпечки. Чтобы показать варианты — сначала set_target/set_constraints, потом generate_schedules. Чтобы начать печь по варианту — pick_variant. Про задержку в процессе — recalc_delay. Про текущий статус — get_status. Если пользователь спрашивает «если начну прямо сейчас (или через X часов), когда будет готово» — это вопрос вперёд от текущего момента, используй time_if_start_now, а не generate_schedules с придуманным временем готовности. Если пользователь уже начал печь без приложения (например «только что сделала складку №1», «замесила тесто час назад») — не пытайся считать назад от желаемого времени готовности, это не сработает. Вместо этого вызови start_from_checkpoint с названием пройденного шага и временем, когда он был сделан: тогда расписание досчитается вперёд и выпечка запустится.'}
+function addMsg(role,text){const d=document.createElement('div');d.className='msg '+role;d.textContent=text;$('chatLog').appendChild(d);$('chatLog').scrollTop=1e9;return d}
+async function sendChat(){
+ const box=$('chatIn'),txt=box.value.trim();if(!txt||!window.SAMPLE)return;
+ box.value='';box.disabled=true;$('chatSend').disabled=true;
+ addMsg('user',txt);LASTCHAT=LASTCHAT||[];LASTCHAT.push({role:'user',content:txt});
+ const b=addMsg('assistant','Думаю…');
+ try{
+  const{text}=await window.SAMPLE([{role:'user',content:rules()},...LASTCHAT],{tools:TOOLS,cache:false,onText:({text})=>{b.textContent=text}});
+  LASTCHAT.push({role:'assistant',content:text});b.textContent=text;render()
+ }catch(e){b.textContent='Не получилось спросить помощника ('+(e.code||'ошибка')+').'}
+ box.disabled=false;$('chatSend').disabled=false;box.focus()}
+$('chatSend').onclick=sendChat;
+$('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat()});
+(async()=>{if(window.claude){try{window.SAMPLE=await window.claude.use('sample')}catch(e){}
+ try{window.DOWNLOADS=await window.claude.use('downloads')}catch(e){}}
+ if(window.SAMPLE)$('chatCard').style.display=''})();
+const t=new Date();t.setDate(t.getDate()+1);t.setHours(9,0,0,0);const z=n=>String(n).padStart(2,'0');
+$('tg').value=t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate())+'T09:00';
+const nw=new Date();nw.setMinutes(Math.ceil(nw.getMinutes()/15)*15,0,0);
+$('nb').value=nw.getFullYear()+'-'+z(nw.getMonth()+1)+'-'+z(nw.getDate())+'T'+z(nw.getHours())+':'+z(nw.getMinutes());
+function loadCR(){try{return JSON.parse(localStorage.getItem('bps_custom_recipes'))||[]}catch(e){return[]}}
+function saveCR(){localStorage.setItem('bps_custom_recipes',JSON.stringify(CR));applyCR();renderMyRecipes()}
+function applyCR(){for(const r of CR){R[r.id]={N:r.N,bulk:r.bulk,fold:[r.fc,r.fe],knead:r.knead,aut:r.aut,pr:PRPICK[r.proofType]||STDPR,combineNote:r.combineNote,kneadNote:r.kneadNote,extraAction:r.extraAction};RNAME[r.id]=r.icon+' '+r.name;if(r.text)RTXT[r.id]=r.text}
+ fillRecipeSelects()}
+function fillRecipeSelects(){for(const id of['rc','scRc']){const sel=$(id),cur=sel.value;
+  sel.innerHTML=Object.keys(RNAME).map(k=>'<option value="'+k+'">'+RNAME[k]+'</option>').join('');
+  if(cur&&RNAME[cur])sel.value=cur}
+ if($('scRc').value)fillCk()}
+const BUILTIN=[{id:'wheat',name:RNAME.wheat},{id:'flax',name:RNAME.flax},{id:'malt_bread',name:RNAME.malt_bread}];
+function wireAccordion(box){const list=[...box.querySelectorAll('details')];
+ list.forEach(d=>d.addEventListener('toggle',()=>{if(d.open)list.forEach(o=>{if(o!==d)o.open=false})}))}
+function renderMyRecipes(){const box=$('myRecipes');
+ const builtinHtml=BUILTIN.map(b=>'<details><summary>'+b.name+' <span class="m">(встроенный)</span></summary><div class="m" style="white-space:pre-wrap;padding:6px 0">'+(RTXT[b.id]||'Текст рецепта не добавлен.')+'</div></details>').join('');
+ const custHtml=CR.map(r=>'<details><summary>'+r.icon+' '+r.name+'</summary><div class="m" style="white-space:pre-wrap;padding:6px 0">'+(RTXT[r.id]||'Текст рецепта не добавлен.')+'</div><div class="row" style="gap:6px;margin-top:4px"><button type="button" class="reset editbtn" data-id="'+r.id+'">Редактировать</button><button type="button" class="reset delbtn" data-id="'+r.id+'">Удалить</button></div></details>').join('');
+ box.innerHTML=builtinHtml+custHtml;
+ box.querySelectorAll('.delbtn').forEach(b=>b.onclick=()=>{
+  if(b.dataset.armed){CR=CR.filter(r=>r.id!==b.dataset.id);delete R[b.dataset.id];delete RNAME[b.dataset.id];delete RTXT[b.dataset.id];saveCR();fillRecipeSelects()}
+  else{b.dataset.armed='1';b.textContent='Точно?';setTimeout(()=>{if(b.isConnected){b.dataset.armed='';b.textContent='Удалить'}},4000)}});
+ box.querySelectorAll('.editbtn').forEach(b=>b.onclick=()=>startEdit(b.dataset.id));
+ wireAccordion(box)}
+const SEEDDEFAULTS={
+ tartine:{name:'Тартин',icon:'🍞',N:160,aut:60,knead:10,bulk:225,fc:6,fe:30,proofType:'flat2',
+  combineNote:'Соединить: вода1 520 г + мука пшеничная 720 г + мука ц/з 80 г + опара 160 г = 1480 г',
+  kneadNote:' (3-5 мин, соль 17 г и вода2 23 г, ещё 5-7 мин)',
+  text:'Тартин (2 буханки)\nОпара 160 г · Вода1 520 г · Мука пшеничная 720 г · Мука ц/з 80 г · Соль 17 г · Вода2 23 г\n\n1. Вода1+мука+опара, автолиз 1ч\n2. Замес 3-5 мин, соль+вода2, ещё 5-7 мин\n3. Брожение 3,5-4ч, 5-6 складываний каждые 30 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'},
+ french_bun:{name:'Французская булка',icon:'🥐',N:225,aut:60,knead:14,bulk:195,fc:4,fe:30,proofType:'until2',
+  combineNote:'Соединить: вода 450 г + мука пшеничная 745 г + опара 225 г = 1420 г',
+  kneadNote:' (4 мин, сахар 45 г и соль 15 г в 2 захода, 3 мин, масло холодное 45 г частями, 6-7 мин)',
+  text:'Французская булка (2 буханки)\nОпара 225 г · Вода 450 г · Мука пшеничная 745 г · Соль 15 г · Сахар 45 г · Масло холодное 45 г\n\n1. Вода+мука+опара, автолиз 1ч\n2. Замес 4 мин, сахар+соль в 2 захода 3 мин, масло кубиками частями 6-7 мин\n3. Брожение 3-3,5ч, 4 складывания каждые 30 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. до 2ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'},
+ simple_bread:{name:'Простой хлеб',icon:'🍞',N:300,aut:60,knead:8,bulk:210,fc:4,fe:30,
+  combineNote:'Соединить: вода 500 г + мука в/с 800 г + мука ц/з 80 г + закваска 300 г = 1680 г',
+  kneadNote:' (добавить соль 20 г после аутолиза)',
+  text:'Простой хлеб\nОпара/закваска 300 г · Вода 500 г · Мука в/с 800 г · Мука ц/з 80 г · Соль 20 г (после аутолиза)\n\n1. Вода+мука+опара, автолиз\n2. Замес, соль после аутолиза\n3. Брожение 3,5ч, складывания первые 2ч каждые 30 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2-2,5ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'},
+ pumpkin_bread:{name:'Тыквенный хлеб',icon:'🎃',N:100,aut:45,knead:8,bulk:195,fc:3,fe:40,
+  combineNote:'Соединить: тыквенное пюре 200 г + мука в/с 400 г + вода 60 г + закваска 100 г = 760 г',
+  kneadNote:' (2 мин, соль 8 г и сахар 10 г, 3-5 мин, заранее подсушенные семена 60 г, ещё 2 мин)',
+  text:'Тыквенный хлеб\nЗакваска 100 г · Тыквенное пюре 200 г · Мука в/с 400 г · Вода 60 г · Сахар 10 г · Соль 8 г · Тыквенные семена (подсушенные) 60 г\n\n1. Всё, кроме соли/сахара, автолиз 30 мин-1ч\n2. Замес 2 мин, соль+сахар 3-5 мин, семена ещё 2 мин\n3. Брожение 3-3,5ч, 3 складывания каждые 40 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2-2,5ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'},
+ onion_bread:{name:'Луковый хлеб',icon:'🧅',N:75,aut:60,knead:9,bulk:225,fc:4,fe:40,extraAction:{title:'Замочить сушёный лук 25 г в воде 25 г',offsetMin:0},
+  combineNote:'Соединить: вода 240 г + мука в/с 360 г + закваска 75 г = 675 г',
+  kneadNote:' (2-3 мин, соль 10 г и замоченный лук 50 г, ещё 5-7 мин)',
+  text:'Луковый хлеб (1 буханка)\nЗакваска 75 г · Вода 240 г · Мука в/с 360 г · Сушёный лук 25 г + вода 25 г (замочить) · Соль 10 г\n\n1. Замес без соли/лука, автолиз 30 мин-1ч\n2. Замес 2-3 мин, соль+лук по очереди, ещё 5-7 мин\n3. Брожение 3,5-4ч, 4 складывания каждые 40 мин\n4. Предформовка, отдых 15 мин, формовка\n5. Расстойка: комн. 2-2,5ч / 8° до 10ч / 4° до 18ч\n6. Духовка 250°, разогрев 1ч (формовой — 30 мин)\n7. Выпечка 15 мин при 250°, затем 15-20 мин при 230°\n8. Остудить на решётке'}
+};
+let CR=loadCR();
+if(!CR.length){CR=Object.keys(SEEDDEFAULTS).map(id=>Object.assign({id},SEEDDEFAULTS[id]))}
+else{for(const r of CR){const d=SEEDDEFAULTS[r.id];if(!d)continue;
+ for(const k of['combineNote','kneadNote','text','proofType','extraAction'])if(d[k]!==undefined)r[k]=d[k]}
+ localStorage.setItem('bps_custom_recipes',JSON.stringify(CR))}
+localStorage.setItem('bps_custom_recipes',JSON.stringify(CR));
+applyCR();renderMyRecipes();
+let ingC=[],ingK=[],EDITING=null;
+function ingRow(arrName,arr,it){const w=document.createElement('div');w.className='abs';
+ w.innerHTML='<input placeholder="Название, напр. вода" style="flex:2"><input type="number" min="0" placeholder="г" style="width:80px"><button type="button" class="rm">✕</button>';
+ const[i1,i2]=w.querySelectorAll('input'),rm=w.querySelector('button');
+ i1.value=it.name||'';i2.value=it.g||'';
+ i1.oninput=()=>it.name=i1.value;i2.oninput=()=>it.g=+i2.value||0;
+ rm.onclick=()=>{arr.splice(arr.indexOf(it),1);renderIng(arrName,arr)};
+ return w}
+function renderIng(id,arr){const c=$(id);c.innerHTML='';arr.forEach(it=>c.appendChild(ingRow(id,arr,it)))}
+$('ingCAdd').onclick=()=>{ingC.push({name:'',g:0});renderIng('ingCList',ingC)};
+$('ingKAdd').onclick=()=>{ingK.push({name:'',g:0});renderIng('ingKList',ingK)};
+function endEdit(){EDITING=null;ingC=[];ingK=[];renderIng('ingCList',ingC);renderIng('ingKList',ingK);
+ $('nName').value=$('nN').value=$('nAut').value=$('nKn').value=$('nBulk').value=$('nFc').value=$('nFe').value=$('nText').value='';
+ $('formTitle').textContent='Добавить рецепт';$('nAdd').textContent='Сохранить рецепт';$('nCancelEdit').style.display='none'}
+function startEdit(id){const r=CR.find(x=>x.id===id);if(!r)return;
+ EDITING=id;$('nName').value=r.name;$('nN').value=r.N;$('nAut').value=r.aut;$('nKn').value=r.knead;$('nBulk').value=r.bulk;$('nFc').value=r.fc;$('nFe').value=r.fe;$('nText').value=r.text||'';
+ ingC=(r.ingC||[]).map(x=>Object.assign({},x));ingK=(r.ingK||[]).map(x=>Object.assign({},x));renderIng('ingCList',ingC);renderIng('ingKList',ingK);
+ $('formTitle').textContent='Редактировать: '+r.name;$('nAdd').textContent='Сохранить изменения';$('nCancelEdit').style.display='';
+ $('recipeCard').open=true;$('nName').scrollIntoView({behavior:'smooth',block:'center'})}
+$('nCancelEdit').onclick=endEdit;
+$('nAdd').onclick=()=>{
+ const name=$('nName').value.trim(),N=+$('nN').value,aut=+$('nAut').value,knead=+$('nKn').value,bulk=+$('nBulk').value,fc=+$('nFc').value||0,fe=+$('nFe').value||30,text=$('nText').value.trim();
+ if(!name||!N||!knead||!bulk){$('nMsg').textContent='Заполните название, опару, замес и брожение.';return}
+ const ic=ingC.filter(i=>i.name&&i.g),ik=ingK.filter(i=>i.name&&i.g);
+ let combineNote,kneadNote;
+ if(ic.length){const sum=ic.reduce((s,i)=>s+i.g,0)+N;combineNote='Соединить: '+ic.map(i=>i.name+' '+i.g+' г').join(' + ')+' + опара '+N+' г = '+sum+' г'}
+ if(ik.length)kneadNote=' ('+ik.map(i=>i.name+' '+i.g+' г').join(', ')+')';
+ if(EDITING){const r=CR.find(x=>x.id===EDITING);Object.assign(r,{name,N,aut,knead,bulk,fc,fe,text,ingC:ic,ingK:ik});
+  if(combineNote)r.combineNote=combineNote;if(kneadNote)r.kneadNote=kneadNote;
+  saveCR();$('nMsg').textContent='Рецепт «'+name+'» обновлён.';endEdit()}
+ else{const id='c_'+Date.now();CR.push({id,name,icon:'🍞',N,aut,knead,bulk,fc,fe,text,ingC:ic,ingK:ik,combineNote,kneadNote});saveCR();
+  $('nMsg').textContent='Рецепт «'+name+'» добавлен.';endEdit()}};
+$('nExport').onclick=async()=>{
+ if(!window.DOWNLOADS){$('nMsg').textContent='Скачивание сейчас недоступно в этом окне.';return}
+ try{await window.DOWNLOADS.save({filename:'bread-recipes-backup.json',data:JSON.stringify(CR,null,2)})}
+ catch(e){$('nMsg').textContent='Не получилось скачать файл.'}};
+$('nImportBtn').onclick=()=>$('nImportFile').click();
+$('nImportFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
+ const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);
+   if(!Array.isArray(data))throw 0;
+   const ids=new Set(CR.map(x=>x.id));for(const x of data)if(x&&x.id&&!ids.has(x.id))CR.push(x);
+   saveCR();$('nMsg').textContent='Рецепты загружены из файла.'}
+  catch(err){$('nMsg').textContent='Не удалось прочитать файл — это не тот формат.'}};
+ r.readAsText(f);e.target.value=''});
+function fillCk(){const sel=$('scCk'),rc=$('scRc').value;sel.innerHTML=ckList(rc).map(k=>'<option value="'+k+'">'+CKLABEL[k]+'</option>').join('')}
+$('plannerCard').addEventListener('focusin',()=>{if($('startCard').open)$('startCard').open=false});
+$('scRc').onchange=()=>{$('rc').value=$('scRc').value;fillCk()};
+$('rc').addEventListener('change',()=>{$('scRc').value=$('rc').value;fillCk()});
+fillCk();
+$('scAt').value=$('nb') && $('nb').value ? $('nb').value : '';
+$('scGo').onclick=()=>{
+ const atMs=new Date($('scAt').value).getTime();
+ if(!$('scAt').value||isNaN(atMs)){$('scMsg').textContent='Укажите, когда это было сделано.';return}
+ const r=startFromCheckpoint($('scRc').value,$('scCk').value,atMs,$('scPm').value);
+ $('scMsg').textContent=r.error?r.error:''};
+ABS=[];renderAbs();
+$('absAdd').onclick=()=>{ABS.push(defRange(16,30,17,30));renderAbs();render()};
+document.querySelectorAll('select,input').forEach(e=>e.addEventListener('input',render));render();
+</script></main></body></html>
