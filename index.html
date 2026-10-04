@@ -21,6 +21,7 @@ select,input{font:inherit;color:inherit;background:var(--bg);border:1px solid va
 .it{display:flex;gap:8px;padding:2px 0}.it b{min-width:48px;font-variant-numeric:tabular-nums}
 .gap{color:var(--mut);background:var(--bg);border-radius:6px;padding:2px 6px;margin:2px 0}
 h2{font-size:1.05rem;margin:0 0 4px}details{margin-top:8px}
+.card>summary,#startCard>summary,#recipeCard>summary{font-size:1.05rem;font-weight:700;cursor:pointer}
 .abs{display:flex;gap:8px;align-items:center;margin:4px 0;flex-wrap:wrap}
 .abs input{flex:1;min-width:150px}
 button.rm{background:none;border:1px solid var(--bd);color:var(--mut);border-radius:6px;width:28px;height:28px;cursor:pointer;flex:0 0 auto}
@@ -45,7 +46,7 @@ a.compresslink{color:var(--ac)}
 <div id="chatLog"></div>
 <div class="row"><input id="chatIn" placeholder="Хочу хлеб к 9 утра, ухожу с 14 до 17…" style="flex:1"><button type="button" id="chatSend" class="pick" style="margin:0">Спросить</button></div>
 </div>
-<details class="card" id="recipeCard"><summary>➕ Мои рецепты (посмотреть / добавить / сохранить копию)</summary>
+<details class="card" id="recipeCard"><summary>➕ Мои рецепты</summary>
 <div id="myRecipes"></div>
 <h2 style="margin-top:14px" id="formTitle">Добавить рецепт</h2>
 <div class="row"><div><label>Название</label><input id="nName" placeholder="Например: Тартин"></div>
@@ -65,7 +66,7 @@ a.compresslink{color:var(--ac)}
 <div class="m" id="nMsg"></div>
 <div class="row" style="margin-top:14px"><button type="button" class="reset" id="nExport">Скачать копию рецептов</button><button type="button" class="reset" id="nImportBtn">Загрузить из файла</button><input type="file" id="nImportFile" accept="application/json" style="display:none"></div>
 </details>
-<details class="card" id="startCard"><summary>Уже начала печь без расчёта? Продолжить с текущего этапа</summary>
+<details class="card" id="startCard"><summary>Уже начала печь без расчёта? <span style="font-weight:400">Продолжить с текущего этапа</span></summary>
 <div class="row"><div><label>Хлеб</label><select id="scRc"></select></div>
 <div><label>На каком этапе я сейчас</label><select id="scCk"></select></div></div>
 <div class="row"><div><label>Когда это сделала</label><input type="datetime-local" id="scAt"></div>
