@@ -35,6 +35,9 @@ button.reset{background:none;border:1px solid var(--bd);color:var(--mut)}
 .fgap{margin-top:20px}
 .rowtoggle{background:none;border:1px solid var(--bd);border-radius:6px;width:24px;height:24px;color:var(--mut);cursor:pointer;margin-left:auto;flex:0 0 auto}
 a.compresslink{color:var(--ac)}
+.kphase{display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap}
+.kphase input[type=text]{flex:2;min-width:140px}
+.kphase input[type=number]{width:55px}
 #chatLog{max-height:260px;overflow-y:auto;margin:8px 0}
 .msg{border-radius:10px;padding:8px 10px;margin:6px 0;max-width:88%;white-space:pre-wrap}
 .msg.user{background:var(--ac);color:#fff;margin-left:auto}
@@ -46,19 +49,19 @@ a.compresslink{color:var(--ac)}
 <div id="chatLog"></div>
 <div class="row"><input id="chatIn" placeholder="Хочу хлеб к 9 утра, ухожу с 14 до 17…" style="flex:1"><button type="button" id="chatSend" class="pick" style="margin:0">Спросить</button></div>
 </div>
-<details class="card" id="recipeCard"><summary>➕ Мои рецепты</summary>
+<details class="card" id="recipeCard"><summary>Рецепты</summary>
 <div id="myRecipes"></div>
 <h2 style="margin-top:14px" id="formTitle">Добавить рецепт</h2>
 <div class="row"><div><label>Название</label><input id="nName" placeholder="Например: Тартин"></div>
 <div><label>Опара/закваска, г</label><input id="nN" type="number" min="1"></div></div>
-<div class="row"><div><label>Аутолиз, мин</label><input id="nAut" type="number" min="0"></div>
-<div><label>Замес (общее время), мин</label><input id="nKn" type="number" min="1"></div></div>
-<div class="row"><div><label>Брожение, мин</label><input id="nBulk" type="number" min="1"></div>
-<div><label>Складываний · через сколько минут</label><div style="display:flex;gap:6px"><input id="nFc" type="number" min="0" style="width:70px" placeholder="раз"><input id="nFe" type="number" min="1" style="width:90px" placeholder="мин"></div></div></div>
+<div class="row"><div><label>Аутолиз</label><div style="display:flex;gap:6px;align-items:center"><input id="nAutH" type="number" min="0" style="width:60px" placeholder="ч"><span class="m">ч</span><input id="nAutM" type="number" min="0" max="59" style="width:60px" placeholder="мин"><span class="m">мин</span></div></div>
+<div><label>Брожение</label><div style="display:flex;gap:6px;align-items:center"><input id="nBulkH" type="number" min="0" style="width:60px" placeholder="ч"><span class="m">ч</span><input id="nBulkM" type="number" min="0" max="59" style="width:60px" placeholder="мин"><span class="m">мин</span></div></div></div>
+<div class="row"><div><label>Складываний · через сколько минут</label><div style="display:flex;gap:6px"><input id="nFc" type="number" min="0" style="width:70px" placeholder="раз"><input id="nFe" type="number" min="1" style="width:90px" placeholder="мин"></div></div></div>
 <label>Ингредиенты, которые соединяются в начале (без опары — она добавится сама)</label>
 <div id="ingCList"></div><button type="button" class="add" id="ingCAdd">+ ингредиент</button>
-<label style="margin-top:10px">Добавляются позже, во время замеса (соль и т.п., необязательно)</label>
-<div id="ingKList"></div><button type="button" class="add" id="ingKAdd">+ ингредиент</button>
+<label style="margin-top:10px">Этапы замеса (необязательно: что добавить и сколько минут месить после этого)</label>
+<div id="kneadList"></div><button type="button" class="add" id="kneadAdd">+ этап замеса</button>
+<div class="m" id="kneadTotal"></div>
 <label style="margin-top:10px">Краткий процесс по шагам (необязательно, для справки)</label>
 <textarea id="nText" rows="4" style="width:100%;font:inherit;background:var(--bg);color:inherit;border:1px solid var(--bd);border-radius:8px;padding:6px 8px"></textarea>
 <div class="m">Предформовка, формовка, расстойка и выпечка берутся такими же, как у остальных рецептов на закваске.</div>
@@ -87,7 +90,6 @@ a.compresslink{color:var(--ac)}
 <button type="button" id="absAdd" class="add">+ добавить период</button></div>
 <div class="row fgap"><div><label>Не занимаюсь хлебом: с</label><input type="time" id="q1" value="23:00"></div><div><label>до</label><input type="time" id="q2" value="07:00"></div></div>
 <div class="row fgap"><div><label id="nbLabel">Могу начать не раньше</label><input type="datetime-local" id="nb"></div></div>
-<div class="m">Ограничения применяются к каждому дню процесса. Пустые поля — без ограничения.</div>
 </div>
 <div id="out"></div>
 <script>
@@ -121,7 +123,7 @@ const RNAME={wheat:'🍞 Пшеничный хлеб с ц/з',flax:'🌾 Хле
 const CKLABEL={levain_made:'Приготовила опару',levain_taken:'Переложила опару в тесто',combine:'Смешала воду, муку и опару',knead:'Замесила тесто',scald_done:'Заварка настояна',fold_1:'Складка №1',fold_2:'Складка №2',fold_3:'Складка №3',fold_4:'Складка №4',fold_5:'Складка №5',fold_6:'Складка №6',preshape:'Сделала предформовку',shape:'Сформовала',fridge_move:'Убрала в холодильник',bake_start:'Загрузила в духовку'};
 function ckList(rcId){const rc=R[rcId];if(!rc)return[];const l=['levain_made','levain_taken'];if(rc.scald)l.push('scald_done');l.push('combine','knead');
  for(let i=1;i<=rc.fold[0];i++)l.push('fold_'+i);l.push('preshape','shape','fridge_move','bake_start');return l}
-const LV={night:{r:10,step:1,rng:[600,720],lb:'долгая 1:10:10 (10–12 ч)'},day:{r:2,step:5,rng:[240,300],lb:'короткая 1:2:2 (4–5 ч)'}};
+const LV={night:{r:10,step:1,rng:[600,720],lb:'долгая 1:10:10 (10–12 ч)'},day:{r:2,step:5,rng:[300,360],lb:'короткая 1:2:2 (5–6 ч)'}};
 function levain(N,m){const k=1+2*m.r,s=Math.ceil((N+10)/k/m.step-1e-9)*m.step;return{s,f:s*m.r,t:s*k}}
 function build(rc,pm,P,lm,L,T){
  let ic=0;const A=[],S=[],a=(t,d,l,x,key)=>A.push({id:'a'+(ic++),s:t,e:t+d*M,l,x,key}),st=(s,e,x)=>S.push({s,e,x});
@@ -426,7 +428,7 @@ else{for(const r of CR){const d=SEEDDEFAULTS[r.id];if(!d)continue;
  localStorage.setItem('bps_custom_recipes',JSON.stringify(CR))}
 localStorage.setItem('bps_custom_recipes',JSON.stringify(CR));
 applyCR();renderMyRecipes();
-let ingC=[],ingK=[],EDITING=null;
+let ingC=[],kneadPhases=[],EDITING=null;
 function ingRow(arrName,arr,it){const w=document.createElement('div');w.className='abs';
  w.innerHTML='<input placeholder="Название, напр. вода" style="flex:2"><input type="number" min="0" placeholder="г" style="width:80px"><button type="button" class="rm">✕</button>';
  const[i1,i2]=w.querySelectorAll('input'),rm=w.querySelector('button');
@@ -436,27 +438,43 @@ function ingRow(arrName,arr,it){const w=document.createElement('div');w.classNam
  return w}
 function renderIng(id,arr){const c=$(id);c.innerHTML='';arr.forEach(it=>c.appendChild(ingRow(id,arr,it)))}
 $('ingCAdd').onclick=()=>{ingC.push({name:'',g:0});renderIng('ingCList',ingC)};
-$('ingKAdd').onclick=()=>{ingK.push({name:'',g:0});renderIng('ingKList',ingK)};
-function endEdit(){EDITING=null;ingC=[];ingK=[];renderIng('ingCList',ingC);renderIng('ingKList',ingK);
- $('nName').value=$('nN').value=$('nAut').value=$('nKn').value=$('nBulk').value=$('nFc').value=$('nFe').value=$('nText').value='';
+function kphaseRow(p){const w=document.createElement('div');w.className='kphase';
+ w.innerHTML='<input type="text" placeholder="что добавить (необязательно)"><input type="number" min="0" placeholder="от, мин"><span class="m">–</span><input type="number" min="0" placeholder="до, мин"><button type="button" class="rm">✕</button>';
+ const[i1,i2,i3]=w.querySelectorAll('input'),rm=w.querySelector('button');
+ i1.value=p.note||'';i2.value=p.dmin||'';i3.value=p.dmax||'';
+ i1.oninput=()=>{p.note=i1.value};i2.oninput=()=>{p.dmin=+i2.value||0;updKneadTotal()};i3.oninput=()=>{p.dmax=+i3.value||0;updKneadTotal()};
+ rm.onclick=()=>{kneadPhases.splice(kneadPhases.indexOf(p),1);renderKnead()};
+ return w}
+function renderKnead(){const c=$('kneadList');c.innerHTML='';kneadPhases.forEach(p=>c.appendChild(kphaseRow(p)));updKneadTotal()}
+function updKneadTotal(){const mins=kneadPhases.reduce((s,p)=>s+((p.dmin||0)+(p.dmax||p.dmin||0))/2,0);
+ $('kneadTotal').textContent=kneadPhases.length?'Итого замес: ~'+Math.round(mins)+' мин':''}
+$('kneadAdd').onclick=()=>{kneadPhases.push({note:'',dmin:0,dmax:0});renderKnead()};
+function endEdit(){EDITING=null;ingC=[];kneadPhases=[];renderIng('ingCList',ingC);renderKnead();
+ $('nName').value=$('nN').value=$('nAutH').value=$('nAutM').value=$('nBulkH').value=$('nBulkM').value=$('nFc').value=$('nFe').value=$('nText').value='';
  $('formTitle').textContent='Добавить рецепт';$('nAdd').textContent='Сохранить рецепт';$('nCancelEdit').style.display='none'}
 function startEdit(id){const r=CR.find(x=>x.id===id);if(!r)return;
- EDITING=id;$('nName').value=r.name;$('nN').value=r.N;$('nAut').value=r.aut;$('nKn').value=r.knead;$('nBulk').value=r.bulk;$('nFc').value=r.fc;$('nFe').value=r.fe;$('nText').value=r.text||'';
- ingC=(r.ingC||[]).map(x=>Object.assign({},x));ingK=(r.ingK||[]).map(x=>Object.assign({},x));renderIng('ingCList',ingC);renderIng('ingKList',ingK);
+ EDITING=id;$('nName').value=r.name;$('nN').value=r.N;
+ $('nAutH').value=Math.floor(r.aut/60);$('nAutM').value=r.aut%60;
+ $('nBulkH').value=Math.floor(r.bulk/60);$('nBulkM').value=r.bulk%60;
+ $('nFc').value=r.fc;$('nFe').value=r.fe;$('nText').value=r.text||'';
+ ingC=(r.ingC||[]).map(x=>Object.assign({},x));renderIng('ingCList',ingC);
+ kneadPhases=(r.kneadPhases||[]).map(x=>Object.assign({},x));renderKnead();
  $('formTitle').textContent='Редактировать: '+r.name;$('nAdd').textContent='Сохранить изменения';$('nCancelEdit').style.display='';
  $('recipeCard').open=true;$('nName').scrollIntoView({behavior:'smooth',block:'center'})}
 $('nCancelEdit').onclick=endEdit;
 $('nAdd').onclick=()=>{
- const name=$('nName').value.trim(),N=+$('nN').value,aut=+$('nAut').value,knead=+$('nKn').value,bulk=+$('nBulk').value,fc=+$('nFc').value||0,fe=+$('nFe').value||30,text=$('nText').value.trim();
- if(!name||!N||!knead||!bulk){$('nMsg').textContent='Заполните название, опару, замес и брожение.';return}
- const ic=ingC.filter(i=>i.name&&i.g),ik=ingK.filter(i=>i.name&&i.g);
+ const name=$('nName').value.trim(),N=+$('nN').value,aut=(+$('nAutH').value||0)*60+(+$('nAutM').value||0),bulk=(+$('nBulkH').value||0)*60+(+$('nBulkM').value||0),fc=+$('nFc').value||0,fe=+$('nFe').value||30,text=$('nText').value.trim();
+ const kp=kneadPhases.filter(p=>p.dmin||p.dmax);
+ const knead=kp.length?Math.round(kp.reduce((s,p)=>s+((p.dmin||0)+(p.dmax||p.dmin||0))/2,0)):0;
+ if(!name||!N||!knead||!bulk){$('nMsg').textContent='Заполните название, опару, хотя бы один этап замеса и брожение.';return}
+ const ic=ingC.filter(i=>i.name&&i.g);
  let combineNote,kneadNote;
  if(ic.length){const sum=ic.reduce((s,i)=>s+i.g,0)+N;combineNote='Соединить: '+ic.map(i=>i.name+' '+i.g+' г').join(' + ')+' + опара '+N+' г = '+sum+' г'}
- if(ik.length)kneadNote=' ('+ik.map(i=>i.name+' '+i.g+' г').join(', ')+')';
- if(EDITING){const r=CR.find(x=>x.id===EDITING);Object.assign(r,{name,N,aut,knead,bulk,fc,fe,text,ingC:ic,ingK:ik});
+ if(kp.length)kneadNote=' ('+kp.map(p=>(p.note?p.note+', ':'')+(p.dmin===p.dmax||!p.dmax?p.dmin:p.dmin+'-'+p.dmax)+' мин').join(', ')+')';
+ if(EDITING){const r=CR.find(x=>x.id===EDITING);Object.assign(r,{name,N,aut,knead,bulk,fc,fe,text,ingC:ic,kneadPhases:kp});
   if(combineNote)r.combineNote=combineNote;if(kneadNote)r.kneadNote=kneadNote;
   saveCR();$('nMsg').textContent='Рецепт «'+name+'» обновлён.';endEdit()}
- else{const id='c_'+Date.now();CR.push({id,name,icon:'🍞',N,aut,knead,bulk,fc,fe,text,ingC:ic,ingK:ik,combineNote,kneadNote});saveCR();
+ else{const id='c_'+Date.now();CR.push({id,name,icon:'🍞',N,aut,knead,bulk,fc,fe,text,ingC:ic,kneadPhases:kp,combineNote,kneadNote});saveCR();
   $('nMsg').textContent='Рецепт «'+name+'» добавлен.';endEdit()}};
 $('nExport').onclick=async()=>{
  if(!window.DOWNLOADS){$('nMsg').textContent='Скачивание сейчас недоступно в этом окне.';return}
