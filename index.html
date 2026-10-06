@@ -70,10 +70,10 @@ a.compresslink{color:var(--ac)}
 <div class="row" style="margin-top:14px"><button type="button" class="reset" id="nExport">Скачать копию рецептов</button><button type="button" class="reset" id="nImportBtn">Загрузить из файла</button><input type="file" id="nImportFile" accept="application/json" style="display:none"></div>
 </details>
 <details class="card" id="startCard"><summary>Уже начала печь без расчёта? <span style="font-weight:400">Продолжить с текущего этапа</span></summary>
-<div class="row"><div><label>Хлеб</label><select id="scRc"></select></div>
-<div><label>На каком этапе я сейчас</label><select id="scCk"></select></div></div>
-<div class="row"><div><label>Когда это сделала</label><input type="datetime-local" id="scAt"></div>
-<div><label>Расстойка (если уже решили)</label><select id="scPm"><option value="room">комнатная</option><option value="f8">холодильник 8 °C</option><option value="f4">холодильник 4 °C</option></select></div></div>
+<div><label>Хлеб</label><select id="scRc"></select></div>
+<div><label>На каком этапе я сейчас</label><select id="scCk"></select></div>
+<div><label>Когда это сделала</label><input type="datetime-local" id="scAt"></div>
+<div><label>Расстойка (если уже решили)</label><select id="scPm"><option value="room">комнатная</option><option value="f8">холодильник 8 °C</option><option value="f4">холодильник 4 °C</option></select></div>
 <button type="button" class="pick" id="scGo">Рассчитать дальше</button>
 <div class="m" id="scMsg"></div>
 </details>
@@ -85,11 +85,12 @@ a.compresslink{color:var(--ac)}
 <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="radio" name="mode" value="now" id="modeNow">Готова начать прямо сейчас, неважно когда будет готов</label>
 </div>
 <div class="row fgap" id="tgWrap"><div><label>Хочу готовый хлеб (конец выпечки)</label><input type="datetime-local" id="tg"></div></div>
-<div class="fgap"><label>Периоды, когда меня не будет</label>
+<div id="nbSlotTarget"></div>
+<div class="fgap" id="absBlock"><div id="nbSlotNow"></div><label>Периоды, когда меня не будет</label>
 <div id="absList"></div>
 <button type="button" id="absAdd" class="add">+ добавить период</button></div>
-<div class="row fgap"><div><label>Не занимаюсь хлебом: с</label><input type="time" id="q1" value="23:00"></div><div><label>до</label><input type="time" id="q2" value="07:00"></div></div>
-<div class="row fgap"><div><label id="nbLabel">Могу начать не раньше</label><input type="datetime-local" id="nb"></div></div>
+<div class="fgap"><label>Не занимаюсь хлебом</label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="m">с</span><input type="time" id="q1" value="23:00"><span class="m">до</span><input type="time" id="q2" value="07:00"></div></div>
+<div class="row fgap" id="nbRow"><div><label id="nbLabel">Могу начать не раньше</label><input type="datetime-local" id="nb"></div></div>
 </div>
 <div id="out"></div>
 <script>
@@ -120,8 +121,8 @@ const RTXT={
 };
 const PL={room:'комнатная',f8:'холодильник 8 °C',f4:'холодильник 4 °C'};
 const RNAME={wheat:'🍞 Пшеничный хлеб с ц/з',flax:'🌾 Хлеб с льном',malt_bread:'🌑 Солодовый хлеб'};
-const CKLABEL={levain_made:'Приготовила опару',levain_taken:'Переложила опару в тесто',combine:'Смешала воду, муку и опару',knead:'Замесила тесто',scald_done:'Заварка настояна',fold_1:'Складка №1',fold_2:'Складка №2',fold_3:'Складка №3',fold_4:'Складка №4',fold_5:'Складка №5',fold_6:'Складка №6',preshape:'Сделала предформовку',shape:'Сформовала',fridge_move:'Убрала в холодильник',bake_start:'Загрузила в духовку'};
-function ckList(rcId){const rc=R[rcId];if(!rc)return[];const l=['levain_made','levain_taken'];if(rc.scald)l.push('scald_done');l.push('combine','knead');
+const CKLABEL={levain_made:'Приготовила опару',levain_taken:'Переложила опару в тесто',combine:'Смешала воду, муку и опару',knead:'Замесила тесто',scald_done:'Заварка настояна',soak_start:'Залила семена льна водой',fold_1:'Складка №1',fold_2:'Складка №2',fold_3:'Складка №3',fold_4:'Складка №4',fold_5:'Складка №5',fold_6:'Складка №6',preshape:'Сделала предформовку',shape:'Сформовала',fridge_move:'Убрала в холодильник',bake_start:'Загрузила в духовку'};
+function ckList(rcId){const rc=R[rcId];if(!rc)return[];const l=['levain_made','levain_taken'];if(rc.scald)l.push('scald_done');if(rc.flax)l.push('soak_start');l.push('combine','knead');
  for(let i=1;i<=rc.fold[0];i++)l.push('fold_'+i);l.push('preshape','shape','fridge_move','bake_start');return l}
 const LV={night:{r:10,step:1,rng:[600,720],lb:'долгая 1:10:10 (10–12 ч)'},day:{r:2,step:5,rng:[300,360],lb:'короткая 1:2:2 (5–6 ч)'}};
 function levain(N,m){const k=1+2*m.r,s=Math.ceil((N+10)/k/m.step-1e-9)*m.step;return{s,f:s*m.r,t:s*k}}
@@ -136,7 +137,7 @@ function build(rc,pm,P,lm,L,T){
  c-=rc.aut*M;const autStart=c;st(c,c+rc.aut*M,'аутолиз');if(rc.extraAction)a(autStart+(rc.extraAction.offsetMin||0)*M,2,'y',rc.extraAction.title);c-=5*M;a(c,5,'r',rc.combineNote||('Соединить воду, муку, опару'+(rc.flax?' и мочку льна':'')),'combine');const cs=c;
  const lv=levain(rc.N,LV[lm]);c-=3*M;a(c,3,'y','Забрать '+rc.N+' г опары в тесто; из остатка взять 10 г и покормить 1:5:5 (10+50+50 г)','levain_taken');
  const le=c;c-=L*M;st(c,le,'опара созревает');a(c,5,'r','Приготовить опару: закваска '+lv.s+' г + мука '+lv.f+' г + вода '+lv.f+' г = '+lv.t+' г','levain_made');
- if(rc.flax){const ss=cs-240*M;st(ss,cs,'мочка льна');a(ss,2,'r','Залить семена льна (75 г) водой (215 г)');st(ss-15*M,ss,'семена остывают');a(ss-20*M,5,'r','Обжарить семена льна 75 г на сухой сковороде (5 мин)')}
+ if(rc.flax){const ss=c;st(ss,cs,'мочка льна');a(ss,2,'r','Залить семена льна (75 г) водой (215 г)','soak_start');st(ss-15*M,ss,'семена остывают');a(ss-20*M,5,'r','Обжарить семена льна 75 г на сухой сковороде (5 мин)')}
  if(rc.scald){const ss=cs-150*M;st(ss,cs,'заварка настаивается');a(ss,5,'r','Заварка: ржаная мука 35 г + тёмный солод 58 г + кипяток 215 г, затем белый солод 8 г (при ≤70 °C)','scald_done')}
  A.sort((x,y)=>x.s-y.s);
  return{A,S,start:Math.min(...A.map(x=>x.s),...S.map(x=>x.s)),T}
@@ -151,7 +152,8 @@ function blocks(T,fwd){const o=[],g=(id)=>$(id).value,d0=new Date(T);d0.setHours
  return o}
 const tm=t=>new Date(t).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}),
 dy=t=>new Date(t).toLocaleDateString('ru',{weekday:'short',day:'numeric',month:'long'}),
-dur=m=>Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':'');
+dur=m=>Math.floor(m/60)+' ч'+(m%60?' '+m%60+' мин':''),
+durShort=m=>{const h=Math.floor(m/60),mm=m%60;return h?(h+' ч'+(mm?' '+mm+' мин':'')):(mm+' мин')};
 function metrics(v){let gap=null,act=0,mx=v.A[0].e;for(const x of v.A){act+=(x.e-x.s)/M;if(x.s>mx){const g={s:mx,e:x.s};if(!gap||g.e-g.s>gap.e-gap.s)gap=g}mx=Math.max(mx,x.e)}
  return{act,gap:gap?(gap.e-gap.s)/M:0,span:(v.T-v.start)/M}}
 function plan(){
@@ -198,7 +200,7 @@ function selectVariant(i){
   stages:v.S.map(s=>({s:s.s,e:s.e,x:s.x}))};
  localStorage.setItem('bps_session',JSON.stringify(sess));render()}
 function loadSession(){try{return JSON.parse(localStorage.getItem('bps_session'))}catch(e){return null}}
-const FLEXKEYS=['levain_made','scald_done'];
+const FLEXKEYS=['levain_made','scald_done','soak_start'];
 function saveUndo(sess){try{localStorage.setItem('bps_session_undo',JSON.stringify(sess))}catch(e){}}
 function markDone(id,now,force){
  now=now||Date.now();
@@ -256,7 +258,7 @@ function renderSession(sess){
  if(RTXT[sess.rcId])h+='<details style="margin:6px 0"><summary class="m">📋 Рецепт: ингредиенты и процесс</summary><div class="m" style="white-space:pre-wrap;padding:6px 0">'+RTXT[sess.rcId]+'</div></details>';
  h+='<div class="m" style="margin-top:6px">Сейчас: '+stageLabel+'</div>';
  if(pending.length){const nx=pending[0],diff=Math.round((nx.s-now)/M),late=diff<0;
-  const when=late?'<span class="late">просрочено на '+(-diff)+' мин</span>':'через '+diff+' мин';
+  const when=late?'<span class="late">просрочено на '+durShort(-diff)+'</span>':'через '+durShort(diff);
   h+='<div class="next"><div><div class="m">Следующее действие · '+tm(nx.s)+' · '+when+'</div><div><b>'+(nx.l=='r'?'🔴':'🟡')+' '+nx.x+'</b></div></div></div>';
   h+='<div class="row" style="gap:6px;align-items:center;margin-top:6px"><input type="datetime-local" id="nextTime" value="'+dtVal(now)+'"><button type="button" class="pick donebtn" data-id="'+nx.id+'" style="margin:0">Отметить выполненным</button></div>';
   h+='<div class="m" style="margin-top:4px">Время можно поставить и в прошлом, и в будущем. <a href="#" class="compresslink" data-id="'+nx.id+'">…или сжать расстойку, чтобы успеть к прежней готовности</a></div>';
@@ -295,6 +297,7 @@ function render(){
  const now=$('modeNow').checked;
  $('tgWrap').style.display=now?'none':'';
  $('nbLabel').textContent=now?'Начинаю в':'Могу начать не раньше';
+ (now?$('nbSlotNow'):$('nbSlotTarget')).appendChild($('nbRow'));
  if(!now&&!$('tg').value)return;
  if(now&&!$('nb').value)return;
  const p=now?planForward():plan();LASTPLAN=p;let h='';
@@ -428,6 +431,13 @@ else{for(const r of CR){const d=SEEDDEFAULTS[r.id];if(!d)continue;
  localStorage.setItem('bps_custom_recipes',JSON.stringify(CR))}
 localStorage.setItem('bps_custom_recipes',JSON.stringify(CR));
 applyCR();renderMyRecipes();
+fetch('recipes.json').then(r=>r.ok?r.json():null).then(data=>{
+ if(!Array.isArray(data))return;
+ let added=false;
+ for(const r of data)if(r&&r.id&&!CR.some(x=>x.id===r.id)){CR.push(r);added=true}
+ if(added){localStorage.setItem('bps_custom_recipes',JSON.stringify(CR));applyCR();renderMyRecipes();
+  const msg=$('nMsg');if(msg)msg.textContent='Рецепты дополнены из recipes.json рядом со страницей.'}
+}).catch(()=>{});
 let ingC=[],kneadPhases=[],EDITING=null;
 function ingRow(arrName,arr,it){const w=document.createElement('div');w.className='abs';
  w.innerHTML='<input placeholder="Название, напр. вода" style="flex:2"><input type="number" min="0" placeholder="г" style="width:80px"><button type="button" class="rm">✕</button>';
@@ -477,8 +487,10 @@ $('nAdd').onclick=()=>{
  else{const id='c_'+Date.now();CR.push({id,name,icon:'🍞',N,aut,knead,bulk,fc,fe,text,ingC:ic,kneadPhases:kp,combineNote,kneadNote});saveCR();
   $('nMsg').textContent='Рецепт «'+name+'» добавлен.';endEdit()}};
 $('nExport').onclick=async()=>{
- if(!window.DOWNLOADS){$('nMsg').textContent='Скачивание сейчас недоступно в этом окне.';return}
- try{await window.DOWNLOADS.save({filename:'bread-recipes-backup.json',data:JSON.stringify(CR,null,2)})}
+ const data=JSON.stringify(CR,null,2);
+ if(window.DOWNLOADS){try{await window.DOWNLOADS.save({filename:'recipes.json',data});return}catch(e){}}
+ try{const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='recipes.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
  catch(e){$('nMsg').textContent='Не получилось скачать файл.'}};
 $('nImportBtn').onclick=()=>$('nImportFile').click();
 $('nImportFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
